@@ -5,7 +5,7 @@ const WebSocket = require("ws");
 const app = express();
 app.use(bodyParser.json());
 
-const socket = new WebSocket("https://serverforsoda-production.up.railway.app/");
+const socket = new WebSocket("wss://serverforsoda-production.up.railway.app/");
 
 socket.on("open", () => {
   console.log("Connected to WebSocket server.");
