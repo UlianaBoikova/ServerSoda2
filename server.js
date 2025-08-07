@@ -1,27 +1,53 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const http = require("http");
 const WebSocket = require("ws");
 
 const app = express();
 app.use(bodyParser.json());
 
-const socket = new WebSocket("wss://serverforsoda-production.up.railway.app/");
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-socket.on("open", () => {
-  console.log("Connected to WebSocket server.");
+// Храним прогресс
+let progress = 0;
+let fullAmount = 10;
+
+// Когда клиент подключается через WebSocket
+wss.on("connection", (ws) => {
+  console.log("✅ WebSocket клиент подключен");
+
+  // Отправляем текущее состояние
+  ws.send(JSON.stringify({
+    type: "update",
+    progress,
+    fullAmount
+  }));
 });
 
+// Когда Shopify вызывает webhook
 app.post("/webhook", (req, res) => {
-  if (socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ type: "increment" }));
-    console.log("Sent increment command to WebSocket server.");
-  } else {
-    console.warn("WebSocket not connected.");
-  }
+  progress += 1;
+
+  // Отправить обновление всем клиентам
+  const update = JSON.stringify({
+    type: "update",
+    progress,
+    fullAmount
+  });
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(update);
+    }
+  });
+
+  console.log("📦 Новый заказ! Прогресс:", progress + "/" + fullAmount);
   res.status(200).send("OK");
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log("Server running on port", port);
+// Используем переменную окружения PORT
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log("✅ Сервер запущен на порту", PORT);
 });
